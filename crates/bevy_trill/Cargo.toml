@@ -1,0 +1,18 @@
+[package]
+name = "bevy_trill"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+trill = { path = "../.." }
+bevy_mod_props = { path = "../bevy_mod_props" }
+
+bevy_app.workspace = true
+bevy_asset.workspace = true
+bevy_ecs.workspace = true
+bevy_reflect.workspace = true
+bevy_tasks.workspace = true
+
+rand.workspace = true 
+thiserror.workspace = true
+ustr.workspace = true

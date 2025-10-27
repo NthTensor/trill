@@ -1,0 +1,11 @@
+(criterion IsClippy (name == clippy))
+(criterion ConceptIdle (concept == idle))
+
+(rule Demo (ConceptIdle IsClippy) (ClippyIdle) said_line:+1 $met_clippy:=1)
+
+(response ClippyIdle shuffle
+          (line "I sure do like pointing out errors.")
+          (line "Hmmm, I'm not sure this is correct.")
+          (line "Lints! Lints! Lints!"))
+
+(response Default () (line "No matching dialog. Goodbye!"))
