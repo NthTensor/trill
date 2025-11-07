@@ -630,7 +630,7 @@ impl DivAssign<Value> for Value {
 /// When accessing a property, if a value has not been set or has the wrong
 /// type, the property should be treated as if it has the default value of the
 /// correct type. For example, toggling a
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component, Resource))]
 pub struct Props {
     properties: BTreeMap<Ustr, Value>,
