@@ -1,27 +1,39 @@
 //! Contains extension traits for using props with bevy
 
-use std::sync::LazyLock;
-
 use bevy_ecs::{
     system::{Commands, EntityCommands},
     world::{DeferredWorld, EntityRef, EntityWorldMut, World},
 };
 use ustr::Ustr;
 
-use super::{Props, Value, ValueError};
+use super::{DefaultRef, Props, Value};
 
+// -----------------------------------------------------------------------------
+// Core immutable properties access
+
+/// Adds [`Props`] access to [`World`], [`DeferredWorld`], [`EntityRef`], and
+/// [`EntityWorldMut`].
 pub trait PropsExt {
     /// Returns a read-only set of properties assoceated with this object.
     fn props(&self) -> &Props;
-}
 
-static EMPTY_PROPS: LazyLock<Props> = LazyLock::new(Props::default);
+    /// Returns an immutable reference to a property value. If the property is
+    /// of the wrong type or is not set, a reference to a default value will be
+    /// returned instead.
+    fn get_prop<T>(&self, name: impl Into<Ustr>) -> &T
+    where
+        T: DefaultRef + 'static,
+        Value: AsRef<T>,
+    {
+        self.props().get(name)
+    }
+}
 
 impl PropsExt for World {
     fn props(&self) -> &Props {
         match self.get_resource::<Props>() {
             Some(p) => p,
-            None => &*EMPTY_PROPS,
+            None => Props::default_ref(),
         }
     }
 }
@@ -30,7 +42,7 @@ impl<'w> PropsExt for DeferredWorld<'w> {
     fn props(&self) -> &Props {
         match self.get_resource::<Props>() {
             Some(p) => p,
-            None => &*EMPTY_PROPS,
+            None => Props::default_ref(),
         }
     }
 }
@@ -39,7 +51,7 @@ impl<'w> PropsExt for EntityRef<'w> {
     fn props(&self) -> &Props {
         match self.get::<Props>() {
             Some(p) => p,
-            None => &*EMPTY_PROPS,
+            None => Props::default_ref(),
         }
     }
 }
@@ -48,14 +60,28 @@ impl<'w> PropsExt for EntityWorldMut<'w> {
     fn props(&self) -> &Props {
         match self.get::<Props>() {
             Some(p) => p,
-            None => &*EMPTY_PROPS,
+            None => Props::default_ref(),
         }
     }
 }
 
+// -----------------------------------------------------------------------------
+// Core mutable properties access
+
+/// Adds mutable [`Props`] access to [`World`] and [`EntityWorldMut`].
 pub trait PropsMutExt {
     /// Provides mutable access to the set of properties assoceated with this object.
     fn props_mut(&mut self) -> &mut Props;
+
+    /// Returns a mutable reference to a property value. If the propety value is
+    /// of the wrong type or not set, a default value of the correct type will
+    /// be inserted.
+    fn get_prop_mut<T>(&mut self, name: impl Into<Ustr>) -> &mut T
+    where
+        Value: AsMut<T>,
+    {
+        self.props_mut().get_mut(name)
+    }
 }
 
 impl PropsMutExt for World {
@@ -70,32 +96,12 @@ impl<'w> PropsMutExt for EntityWorldMut<'w> {
     }
 }
 
-pub trait PropAccessExt {
-    /// Gets a property value assoceated with this object. If a value exists but
-    /// is of the wrong type, an error will be returned.
-    fn get_prop<T>(&self, name: impl Into<Ustr>) -> Option<Result<T, ValueError>>
-    where
-        T: TryFrom<Value, Error = ValueError>;
+// -----------------------------------------------------------------------------
+// Property commands
 
-    /// Gets a property value assoceated with this object, returning whatever
-    /// type is avalible.
-    fn get_prop_value(&self, name: impl Into<Ustr>) -> Option<Value>;
-}
-
-impl<P: PropsExt> PropAccessExt for P {
-    fn get_prop<T>(&self, name: impl Into<Ustr>) -> Option<Result<T, ValueError>>
-    where
-        T: TryFrom<Value, Error = ValueError>,
-    {
-        self.props().get(name)
-    }
-
-    fn get_prop_value(&self, name: impl Into<Ustr>) -> Option<Value> {
-        self.props().get_value(name)
-    }
-}
-
-pub trait PropMutateExt {
+/// Adds property mutations to [`Commands`], [`EntityCommands`],
+/// [`World`] and [`EntityWorldMut`].
+pub trait PropCommandsExt {
     /// Sets a property assoceated with this object.
     fn set_prop(&mut self, name: impl Into<Ustr>, value: impl Into<Value>) -> &mut Self;
 
@@ -106,7 +112,7 @@ pub trait PropMutateExt {
     fn clear_props(&mut self) -> &mut Self;
 }
 
-impl<P: PropsMutExt> PropMutateExt for P {
+impl<P: PropsMutExt> PropCommandsExt for P {
     fn set_prop(&mut self, name: impl Into<Ustr>, value: impl Into<Value>) -> &mut Self {
         self.props_mut().set(name, value);
         self
@@ -123,7 +129,7 @@ impl<P: PropsMutExt> PropMutateExt for P {
     }
 }
 
-impl<'w, 's> PropMutateExt for Commands<'w, 's> {
+impl<'w, 's> PropCommandsExt for Commands<'w, 's> {
     fn set_prop(&mut self, name: impl Into<Ustr>, value: impl Into<Value>) -> &mut Self {
         let name = name.into();
         let value = value.into();
@@ -149,7 +155,7 @@ impl<'w, 's> PropMutateExt for Commands<'w, 's> {
     }
 }
 
-impl<'a> PropMutateExt for EntityCommands<'a> {
+impl<'a> PropCommandsExt for EntityCommands<'a> {
     fn set_prop(&mut self, name: impl Into<Ustr>, value: impl Into<Value>) -> &mut Self {
         let name = name.into();
         let value = value.into();

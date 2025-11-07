@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 bevy_ecs = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
 ustr.workspace = true
 
 [features]
-bevy = [ "dep:bevy_ecs" ]
+bevy = [ "dep:bevy_ecs", "dep:thiserror" ]
 default = [ "bevy" ]

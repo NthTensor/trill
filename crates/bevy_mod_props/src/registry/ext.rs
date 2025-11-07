@@ -2,19 +2,23 @@
 
 use bevy_ecs::{
     entity::{Entity, EntityHashSet},
+    system::EntityCommands,
     world::{DeferredWorld, EntityMut, EntityRef, EntityWorldMut, World},
 };
 use ustr::Ustr;
 
 use super::{Class, EMPTY_SET, Identity, Registry};
 
-pub trait RegistryAccessExt {
+// -----------------------------------------------------------------------------
+// Registry Access
+
+pub trait RegistryExt {
     fn get_name(&self) -> Option<Ustr>;
 
     fn get_class(&self) -> Option<Ustr>;
 }
 
-impl<'w> RegistryAccessExt for EntityRef<'w> {
+impl<'w> RegistryExt for EntityRef<'w> {
     fn get_name(&self) -> Option<Ustr> {
         self.get::<Identity>().map(|i| i.0)
     }
@@ -24,13 +28,16 @@ impl<'w> RegistryAccessExt for EntityRef<'w> {
     }
 }
 
-pub trait RegistryMutateExt {
+// -----------------------------------------------------------------------------
+// Registry Mutation
+
+pub trait RegistryCommandsExt {
     fn set_name(&mut self, name: impl Into<Ustr>) -> &mut Self;
 
     fn set_class(&mut self, class: impl Into<Ustr>) -> &mut Self;
 }
 
-impl<'w> RegistryMutateExt for EntityWorldMut<'w> {
+impl<'w> RegistryCommandsExt for EntityWorldMut<'w> {
     fn set_name(&mut self, name: impl Into<Ustr>) -> &mut Self {
         self.insert(Identity::new(name))
     }
@@ -40,7 +47,20 @@ impl<'w> RegistryMutateExt for EntityWorldMut<'w> {
     }
 }
 
-pub trait RegistryWorldExt {
+impl<'w> RegistryCommandsExt for EntityCommands<'w> {
+    fn set_name(&mut self, name: impl Into<Ustr>) -> &mut Self {
+        self.insert(Identity::new(name))
+    }
+
+    fn set_class(&mut self, class: impl Into<Ustr>) -> &mut Self {
+        self.insert(Class::new(class))
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Registryx lookups
+
+pub trait RegistryLookupExt {
     fn lookup_name(&self, name: impl Into<Ustr>) -> Option<Entity>;
 
     fn lookup_class(&self, class: impl Into<Ustr>) -> &EntityHashSet;
@@ -48,7 +68,7 @@ pub trait RegistryWorldExt {
     fn entity_named(&self, name: impl Into<Ustr>) -> Option<EntityRef>;
 }
 
-impl RegistryWorldExt for World {
+impl RegistryLookupExt for World {
     fn lookup_name(&self, name: impl Into<Ustr>) -> Option<Entity> {
         if let Some(registry) = self.get_resource::<Registry>() {
             registry.lookup_name(name)
@@ -61,7 +81,7 @@ impl RegistryWorldExt for World {
         if let Some(registry) = self.get_resource::<Registry>() {
             registry.lookup_class(class)
         } else {
-            &*EMPTY_SET
+            &EMPTY_SET
         }
     }
 
@@ -70,7 +90,7 @@ impl RegistryWorldExt for World {
     }
 }
 
-impl<'w> RegistryWorldExt for DeferredWorld<'w> {
+impl<'w> RegistryLookupExt for DeferredWorld<'w> {
     fn lookup_name(&self, name: impl Into<Ustr>) -> Option<Entity> {
         if let Some(registry) = self.get_resource::<Registry>() {
             registry.named_entities.get(&name.into()).copied()
@@ -83,7 +103,7 @@ impl<'w> RegistryWorldExt for DeferredWorld<'w> {
         if let Some(registry) = self.get_resource::<Registry>() {
             registry.lookup_class(class)
         } else {
-            &*EMPTY_SET
+            &EMPTY_SET
         }
     }
 
@@ -92,22 +112,28 @@ impl<'w> RegistryWorldExt for DeferredWorld<'w> {
     }
 }
 
-pub trait RegistryEntityWorldMutExt {
+// -----------------------------------------------------------------------------
+// Mutable registry lookups lookup
+
+pub trait RegistryLookupMutExt {
     fn entity_mut_named(&mut self, name: impl Into<Ustr>) -> Option<EntityWorldMut>;
 }
 
-impl RegistryEntityWorldMutExt for World {
+impl RegistryLookupMutExt for World {
     fn entity_mut_named(&mut self, name: impl Into<Ustr>) -> Option<EntityWorldMut> {
         self.lookup_name(name)
             .and_then(|e| self.get_entity_mut(e).ok())
     }
 }
 
-pub trait RegistryEntityMutExt {
+// -----------------------------------------------------------------------------
+// Deferred mutable registry lookups
+
+pub trait RegistryLookupDeferredExt {
     fn entity_mut_named(&mut self, name: impl Into<Ustr>) -> Option<EntityMut>;
 }
 
-impl<'w> RegistryEntityMutExt for DeferredWorld<'w> {
+impl<'w> RegistryLookupDeferredExt for DeferredWorld<'w> {
     fn entity_mut_named(&mut self, name: impl Into<Ustr>) -> Option<EntityMut> {
         self.lookup_name(name)
             .and_then(|e| self.get_entity_mut(e).ok())

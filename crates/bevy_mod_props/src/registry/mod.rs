@@ -11,16 +11,36 @@ use bevy_ecs::{
     world::{DeferredWorld, World},
 };
 pub use ext::*;
+use thiserror::Error;
 use ustr::{Ustr, UstrMap};
+
+// -----------------------------------------------------------------------------
+// Error Type
+
+#[derive(Error, Debug)]
+pub enum RegistryError {
+    #[error(
+        "error inserting `Identity` component: name {name} requested by {requester} already in use by {owner}"
+    )]
+    NameTaken {
+        name: Ustr,
+        owner: Entity,
+        requester: Entity,
+    },
+}
+
+// -----------------------------------------------------------------------------
+// The Identity Component
 
 /// Uniquely identifies an entity.
 ///
 /// There can only be one entity with a given identiy string. Adding an identity
-/// to an entity automatically removes the identity from the entity that previously held it.
+/// that is already in use is not allowed; the component will be automatically
+/// removed and an error will be logged.
 #[derive(Component, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug)]
 #[component(immutable)]
 #[component(on_insert = Identity::on_insert)]
-#[component(on_remove = Identity::on_remove)]
+#[component(on_replace = Identity::on_replace)]
 pub struct Identity(Ustr);
 
 impl Identity {
@@ -31,34 +51,72 @@ impl Identity {
     fn on_insert(mut world: DeferredWorld, context: HookContext) {
         let Identity(name) = *world.entity(context.entity).get::<Identity>().unwrap();
         if let Some(mut registry) = world.get_resource_mut::<Registry>() {
-            registry.reigrations.entry(context.entity).or_default().name = Some(name);
-            if let Some(old_entity) = registry.named_entities.insert(name, context.entity) {
-                registry.reigrations.get_mut(&old_entity).unwrap().name = None;
-                world.commands().entity(old_entity).remove::<Identity>();
+            // The registry exists in the world
+            if let Some(&owner) = registry.named_entities.get(&name) {
+                // The name is already in use, remove the component and return an error
+                world.commands().entity(context.entity).remove::<Identity>();
+                let error_handler = world.default_error_handler();
+                error_handler(
+                    RegistryError::NameTaken {
+                        name,
+                        owner,
+                        requester: context.entity,
+                    }
+                    .into(),
+                    bevy_ecs::error::ErrorContext::Observer {
+                        name: "Identity::on_insert".into(),
+                        last_run: world.last_change_tick(),
+                    },
+                );
+            } else {
+                // The name is not already in use, add it
+                registry.named_entities.insert(name, context.entity);
+                registry.reigrations.get_mut(&context.entity).unwrap().name = Some(name);
             }
         } else {
             world.commands().queue(move |world: &mut World| {
                 let mut registry = world.get_resource_or_init::<Registry>();
-                registry.reigrations.entry(context.entity).or_default().name = Some(name);
-                if let Some(old_entity) = registry.named_entities.insert(name, context.entity) {
-                    registry.reigrations.get_mut(&old_entity).unwrap().name = None;
-                    world.entity_mut(old_entity).remove::<Identity>();
+                // The registry exists in the world
+                if let Some(&owner) = registry.named_entities.get(&name) {
+                    // The name is already in use, remove the component and return an error
+                    world.commands().entity(context.entity).remove::<Identity>();
+                    let error_handler = world.default_error_handler();
+                    error_handler(
+                        RegistryError::NameTaken {
+                            name,
+                            owner,
+                            requester: context.entity,
+                        }
+                        .into(),
+                        bevy_ecs::error::ErrorContext::Observer {
+                            name: "Identity::on_insert".into(),
+                            last_run: world.last_change_tick(),
+                        },
+                    );
+                } else {
+                    // The name is not already in use, add it
+                    registry.named_entities.insert(name, context.entity);
+                    registry.reigrations.get_mut(&context.entity).unwrap().name = Some(name);
                 }
             })
         }
     }
 
-    fn on_remove(mut world: DeferredWorld, context: HookContext) {
+    fn on_replace(mut world: DeferredWorld, context: HookContext) {
         let Identity(name) = *world.entity(context.entity).get::<Identity>().unwrap();
         if let Some(mut registry) = world.get_resource_mut::<Registry>() {
-            registry.reigrations.get_mut(&context.entity).unwrap().name = None;
+            if let Some(registration) = registry.reigrations.get_mut(&context.entity) {
+                registration.name = None;
+            }
             if registry.named_entities.get(&name) == Some(&context.entity) {
                 registry.named_entities.remove(&name);
             }
         } else {
             world.commands().queue(move |world: &mut World| {
                 let mut registry = world.get_resource_or_init::<Registry>();
-                registry.reigrations.get_mut(&context.entity).unwrap().name = None;
+                if let Some(registration) = registry.reigrations.get_mut(&context.entity) {
+                    registration.name = None;
+                }
                 if registry.named_entities.get(&name) == Some(&context.entity) {
                     registry.named_entities.remove(&name);
                 }
@@ -75,9 +133,13 @@ impl Deref for Identity {
     }
 }
 
-/// Identifies the class of entities to which this belongs.
+// -----------------------------------------------------------------------------
+// The Class Component
+
+/// Identifies the class to which this entity belongs.
 ///
-/// Each entity may only belong to one class.
+/// A class is simply a named set of entities. Each entity may have exactly
+/// one class. Each entity may only belong to one class.
 #[derive(Component, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug)]
 #[component(immutable)]
 #[component(on_insert = Class::on_insert)]
@@ -138,6 +200,9 @@ impl Deref for Class {
     }
 }
 
+// -----------------------------------------------------------------------------
+// The Entity Registry
+
 static EMPTY_SET: LazyLock<EntityHashSet> = LazyLock::new(EntityHashSet::default);
 
 static EMPTY_REG: LazyLock<EntityRegistration> = LazyLock::new(EntityRegistration::default);
@@ -150,6 +215,7 @@ pub struct Registry {
     reigrations: EntityHashMap<EntityRegistration>,
 }
 
+/// Stores name and class info about a specific entity.
 #[derive(Default)]
 pub struct EntityRegistration {
     pub name: Option<Ustr>,
