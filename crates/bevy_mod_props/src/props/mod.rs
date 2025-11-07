@@ -407,6 +407,74 @@ impl PartialEq<Value> for Value {
 impl Eq for Value {}
 
 // -----------------------------------------------------------------------------
+// Comparison
+
+impl PartialOrd<bool> for Value {
+    fn partial_cmp(&self, that: &bool) -> Option<std::cmp::Ordering> {
+        match self {
+            Value::Bool(this) => this.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd<Value> for bool {
+    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
+        match other {
+            Value::Bool(that) => self.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd<f32> for Value {
+    fn partial_cmp(&self, that: &f32) -> Option<std::cmp::Ordering> {
+        match self {
+            Value::Num(this) => this.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd<Value> for f32 {
+    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
+        match other {
+            Value::Num(that) => self.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd<Ustr> for Value {
+    fn partial_cmp(&self, that: &Ustr) -> Option<std::cmp::Ordering> {
+        match self {
+            Value::Str(this) => this.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd<Value> for Ustr {
+    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
+        match other {
+            Value::Str(that) => self.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+impl PartialOrd<Value> for Value {
+    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Value::Bool(this), Value::Bool(that)) => this.partial_cmp(that),
+            (Value::Num(this), Value::Num(that)) => this.partial_cmp(that),
+            (Value::Str(this), Value::Str(that)) => this.partial_cmp(that),
+            _ => None,
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Addition
 
 // Addition is defined for all values. Values that do not contain numbers behave
