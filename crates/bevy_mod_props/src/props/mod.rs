@@ -127,89 +127,48 @@ impl From<Ustr> for Value {
     }
 }
 
-#[derive(Debug)]
-pub enum ValueError {
-    IsBool(bool),
-    IsNum(f32),
-    IsStr(Ustr),
-}
-
-impl TryFrom<Value> for bool {
-    type Error = ValueError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+impl From<Value> for bool {
+    fn from(value: Value) -> Self {
         match value {
-            Value::Bool(bool) => Ok(bool),
-            Value::Num(num) => Err(ValueError::IsNum(num)),
-            Value::Str(ustr) => Err(ValueError::IsStr(ustr)),
+            Value::Bool(bool) => bool,
+            _ => false,
         }
     }
 }
 
-impl TryFrom<Value> for f32 {
-    type Error = ValueError;
-
-    fn try_from(value: Value) -> Result<f32, Self::Error> {
+impl From<Value> for f32 {
+    fn from(value: Value) -> Self {
         match value {
-            Value::Bool(bool) => Err(ValueError::IsBool(bool)),
-            Value::Num(num) => Ok(num),
-            Value::Str(ustr) => Err(ValueError::IsStr(ustr)),
+            Value::Num(num) => num,
+            _ => 0.0,
         }
     }
 }
 
-impl TryFrom<Value> for &str {
-    type Error = ValueError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        Ustr::try_from(value).map(|s| s.as_str())
-    }
-}
-
-impl TryFrom<Value> for Ustr {
-    type Error = ValueError;
-
-    fn try_from(value: Value) -> Result<Ustr, Self::Error> {
+impl From<Value> for f64 {
+    fn from(value: Value) -> Self {
         match value {
-            Value::Bool(bool) => Err(ValueError::IsBool(bool)),
-            Value::Num(num) => Err(ValueError::IsNum(num)),
-            Value::Str(ustr) => Ok(ustr),
+            Value::Num(num) => num as f64,
+            _ => 0.0,
         }
     }
 }
 
-// -----------------------------------------------------------------------------
-// Default references
-
-pub trait DefaultRef {
-    fn default_ref() -> &'static Self;
-}
-
-impl DefaultRef for bool {
-    fn default_ref() -> &'static Self {
-        &false
+impl From<Value> for &str {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Str(str) => str.as_str(),
+            _ => "",
+        }
     }
 }
 
-impl DefaultRef for f32 {
-    fn default_ref() -> &'static Self {
-        &0.0
-    }
-}
-
-static EMPTY_STR: LazyLock<Ustr> = LazyLock::new(Ustr::default);
-
-impl DefaultRef for Ustr {
-    fn default_ref() -> &'static Self {
-        &EMPTY_STR
-    }
-}
-
-static EMPTY_VALUE: LazyLock<Value> = LazyLock::new(|| Value::Num(0.0));
-
-impl DefaultRef for Value {
-    fn default_ref() -> &'static Self {
-        &EMPTY_VALUE
+impl From<Value> for Ustr {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Str(str) => str,
+            _ => Ustr::from(""),
+        }
     }
 }
 
@@ -220,7 +179,7 @@ impl AsRef<bool> for Value {
     fn as_ref(&self) -> &bool {
         match self {
             Value::Bool(bool) => bool,
-            _ => bool::default_ref(),
+            _ => &false,
         }
     }
 }
@@ -229,16 +188,18 @@ impl AsRef<f32> for Value {
     fn as_ref(&self) -> &f32 {
         match self {
             Value::Num(num) => num,
-            _ => f32::default_ref(),
+            _ => &0.0,
         }
     }
 }
+
+static EMPTY_USTR: LazyLock<Ustr> = LazyLock::new(|| Ustr::from(""));
 
 impl AsRef<Ustr> for Value {
     fn as_ref(&self) -> &Ustr {
         match self {
             Value::Str(str) => str,
-            _ => Ustr::default_ref(),
+            _ => &EMPTY_USTR,
         }
     }
 }
@@ -284,7 +245,7 @@ impl AsMut<Ustr> for Value {
         match self {
             Value::Str(str) => str,
             _ => {
-                *self = Value::Str(*EMPTY_STR);
+                *self = Value::Str(Ustr::from(""));
                 let Value::Str(str) = self else {
                     unreachable!();
                 };
@@ -339,8 +300,8 @@ impl PartialEq<Value> for f32 {
     }
 }
 
-impl PartialEq<str> for Value {
-    fn eq(&self, other: &str) -> bool {
+impl PartialEq<&str> for Value {
+    fn eq(&self, other: &&str) -> bool {
         match self {
             Value::Str(this) => *this == Ustr::from(other),
             _ => false,
@@ -348,7 +309,7 @@ impl PartialEq<str> for Value {
     }
 }
 
-impl PartialEq<Value> for str {
+impl PartialEq<Value> for &str {
     fn eq(&self, other: &Value) -> bool {
         match other {
             Value::Str(that) => *self == Ustr::from(that),
@@ -719,15 +680,14 @@ impl Props {
     /// Returns an immutable reference to a property value. If the property is
     /// of the wrong type or is not set, a reference to a default value will be
     /// returned instead.
-    pub fn get<T>(&self, name: impl Into<Ustr>) -> &T
+    pub fn get<T>(&self, name: impl Into<Ustr>) -> T
     where
-        T: DefaultRef + 'static,
-        Value: AsRef<T>,
+        T: From<Value> + Default + 'static,
     {
-        if let Some(value) = self.properties.get(&name.into()) {
-            value.as_ref()
+        if let Some(&value) = self.properties.get(&name.into()) {
+            value.into()
         } else {
-            T::default_ref()
+            T::default()
         }
     }
 
@@ -794,19 +754,13 @@ impl Props {
     }
 }
 
-static EMPTY_PROPS: LazyLock<Props> = LazyLock::new(Props::default);
-
-impl DefaultRef for Props {
-    fn default_ref() -> &'static Self {
-        &EMPTY_PROPS
-    }
-}
+static DEFAULT_VALUE: LazyLock<Value> = LazyLock::new(Value::default);
 
 impl<S: Into<Ustr>> Index<S> for Props {
     type Output = Value;
 
     fn index(&self, index: S) -> &Self::Output {
-        self.get(index)
+        self.properties.get(&index.into()).unwrap_or(&DEFAULT_VALUE)
     }
 }
 

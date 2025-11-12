@@ -15,18 +15,22 @@ use thiserror::Error;
 use ustr::{Ustr, UstrMap};
 
 // -----------------------------------------------------------------------------
-// Error Type
+// Errors
 
-#[derive(Error, Debug)]
-pub enum RegistryError {
-    #[error(
-        "error inserting `Identity` component: name {name} requested by {requester} already in use by {owner}"
-    )]
-    NameTaken {
-        name: Ustr,
-        owner: Entity,
-        requester: Entity,
-    },
+#[derive(Debug, Error)]
+#[error(
+    "error inserting `Identity` component: name {name} requested by {requester} already in use by {owner}"
+)]
+pub struct NameTakenError {
+    name: Ustr,
+    owner: Entity,
+    requester: Entity,
+}
+
+#[derive(Debug, Error)]
+#[error("no entity found with name '{name}'")]
+pub struct EntityNotFoundError {
+    name: Ustr,
 }
 
 // -----------------------------------------------------------------------------
@@ -53,36 +57,13 @@ impl Identity {
         if let Some(mut registry) = world.get_resource_mut::<Registry>() {
             // The registry exists in the world
             if let Some(&owner) = registry.named_entities.get(&name) {
-                // The name is already in use, remove the component and return an error
-                world.commands().entity(context.entity).remove::<Identity>();
-                let error_handler = world.default_error_handler();
-                error_handler(
-                    RegistryError::NameTaken {
-                        name,
-                        owner,
-                        requester: context.entity,
-                    }
-                    .into(),
-                    bevy_ecs::error::ErrorContext::Observer {
-                        name: "Identity::on_insert".into(),
-                        last_run: world.last_change_tick(),
-                    },
-                );
-            } else {
-                // The name is not already in use, add it
-                registry.named_entities.insert(name, context.entity);
-                registry.reigrations.get_mut(&context.entity).unwrap().name = Some(name);
-            }
-        } else {
-            world.commands().queue(move |world: &mut World| {
-                let mut registry = world.get_resource_or_init::<Registry>();
-                // The registry exists in the world
-                if let Some(&owner) = registry.named_entities.get(&name) {
-                    // The name is already in use, remove the component and return an error
+                // We explicetly allow re-inserting the same name on an entity
+                if owner != context.entity {
+                    // The name is already in use by a different entity, remove the component and return an error
                     world.commands().entity(context.entity).remove::<Identity>();
                     let error_handler = world.default_error_handler();
                     error_handler(
-                        RegistryError::NameTaken {
+                        NameTakenError {
                             name,
                             owner,
                             requester: context.entity,
@@ -93,10 +74,39 @@ impl Identity {
                             last_run: world.last_change_tick(),
                         },
                     );
+                }
+            } else {
+                // The name is not already in use, add it
+                registry.named_entities.insert(name, context.entity);
+                registry.reigrations.entry(context.entity).or_default().name = Some(name);
+            }
+        } else {
+            world.commands().queue(move |world: &mut World| {
+                let mut registry = world.get_resource_or_init::<Registry>();
+                // The registry exists in the world
+                if let Some(&owner) = registry.named_entities.get(&name) {
+                    // We explicetly allow re-inserting the same name on an entity
+                    if owner != context.entity {
+                        // The name is already in use by a different entity, remove the component and return an error
+                        world.commands().entity(context.entity).remove::<Identity>();
+                        let error_handler = world.default_error_handler();
+                        error_handler(
+                            NameTakenError {
+                                name,
+                                owner,
+                                requester: context.entity,
+                            }
+                            .into(),
+                            bevy_ecs::error::ErrorContext::Observer {
+                                name: "Identity::on_insert".into(),
+                                last_run: world.last_change_tick(),
+                            },
+                        );
+                    }
                 } else {
                     // The name is not already in use, add it
                     registry.named_entities.insert(name, context.entity);
-                    registry.reigrations.get_mut(&context.entity).unwrap().name = Some(name);
+                    registry.reigrations.entry(context.entity).or_default().name = Some(name);
                 }
             })
         }
@@ -223,8 +233,12 @@ pub struct EntityRegistration {
 }
 
 impl Registry {
-    pub fn lookup_name(&self, name: impl Into<Ustr>) -> Option<Entity> {
-        self.named_entities.get(&name.into()).copied()
+    pub fn lookup_name(&self, name: impl Into<Ustr>) -> Result<Entity, EntityNotFoundError> {
+        let name = name.into();
+        self.named_entities
+            .get(&name)
+            .copied()
+            .ok_or(EntityNotFoundError { name })
     }
 
     pub fn lookup_class(&self, class: impl Into<Ustr>) -> &EntityHashSet {

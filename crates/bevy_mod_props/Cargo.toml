@@ -8,6 +8,9 @@ bevy_ecs = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 ustr.workspace = true
 
+[dev-dependencies]
+bevy_ecs.workspace = true
+
 [features]
 bevy = [ "dep:bevy_ecs", "dep:thiserror" ]
 default = [ "bevy" ]

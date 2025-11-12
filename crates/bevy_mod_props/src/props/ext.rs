@@ -1,15 +1,19 @@
 //! Contains extension traits for using props with bevy
 
+use std::sync::LazyLock;
+
 use bevy_ecs::{
     system::{Commands, EntityCommands},
     world::{DeferredWorld, EntityRef, EntityWorldMut, World},
 };
 use ustr::Ustr;
 
-use super::{DefaultRef, Props, Value};
+use super::{Props, Value};
 
 // -----------------------------------------------------------------------------
 // Core immutable properties access
+
+static EMPTY_PROPS: LazyLock<Props> = LazyLock::new(Props::new);
 
 /// Adds [`Props`] access to [`World`], [`DeferredWorld`], [`EntityRef`], and
 /// [`EntityWorldMut`].
@@ -20,10 +24,9 @@ pub trait PropsExt {
     /// Returns an immutable reference to a property value. If the property is
     /// of the wrong type or is not set, a reference to a default value will be
     /// returned instead.
-    fn get_prop<T>(&self, name: impl Into<Ustr>) -> &T
+    fn get_prop<T>(&self, name: impl Into<Ustr>) -> T
     where
-        T: DefaultRef + 'static,
-        Value: AsRef<T>,
+        T: From<Value> + Default + 'static,
     {
         self.props().get(name)
     }
@@ -33,7 +36,7 @@ impl PropsExt for World {
     fn props(&self) -> &Props {
         match self.get_resource::<Props>() {
             Some(p) => p,
-            None => Props::default_ref(),
+            None => &EMPTY_PROPS,
         }
     }
 }
@@ -42,7 +45,7 @@ impl<'w> PropsExt for DeferredWorld<'w> {
     fn props(&self) -> &Props {
         match self.get_resource::<Props>() {
             Some(p) => p,
-            None => Props::default_ref(),
+            None => &EMPTY_PROPS,
         }
     }
 }
@@ -51,7 +54,7 @@ impl<'w> PropsExt for EntityRef<'w> {
     fn props(&self) -> &Props {
         match self.get::<Props>() {
             Some(p) => p,
-            None => Props::default_ref(),
+            None => &EMPTY_PROPS,
         }
     }
 }
@@ -60,7 +63,7 @@ impl<'w> PropsExt for EntityWorldMut<'w> {
     fn props(&self) -> &Props {
         match self.get::<Props>() {
             Some(p) => p,
-            None => Props::default_ref(),
+            None => &EMPTY_PROPS,
         }
     }
 }

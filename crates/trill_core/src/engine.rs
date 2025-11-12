@@ -151,12 +151,10 @@ impl ResponseEngine {
                 } else {
                     &mut charicter_props
                 };
-                let value = props.get_value(*var);
+                let value = props.get(*var);
                 match (value, *op) {
-                    (Some(Value::Bool(value)), Operation::BoolToggle) => props.set(*var, !value),
-                    (Some(Value::Num(value)), Operation::NumAdd(num)) => {
-                        props.set(*var, value + num)
-                    }
+                    (Value::Bool(value), Operation::BoolToggle) => props.set(*var, !value),
+                    (Value::Num(value), Operation::NumAdd(num)) => props.set(*var, value + num),
                     (_, Operation::BoolSet(bool)) => props.set(*var, bool),
                     (_, Operation::BoolToggle) => props.set(*var, true),
                     (_, Operation::NumSet(num)) => props.set(*var, num),
