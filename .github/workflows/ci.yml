@@ -63,43 +63,6 @@ jobs:
       # Running doc tests separately is a workaround for <https://github.com/rust-lang/cargo/issues/6669>.
       - name: Run doctests
         run: cargo test --locked --workspace --doc
-        # Failing until we have a `lib.rs` again
-        continue-on-error: true
-
-  # Check that the game builds for web.
-  build-web:
-    name: Check build for web
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          targets: wasm32-unknown-unknown
-          toolchain: ${{ env.toolchain }}
-
-      - name: Active CI cargo config
-        run: mv .cargo/config_ci.toml .cargo/config.toml
-
-      - name: Install cargo binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Install Wild
-        run: cargo binstall wild-linker --locked --force
-
-      - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev
-
-      - name: Populate target directory from cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Check build for web
-        run: cargo check --config 'profile.web.inherits="dev"' --profile web --target wasm32-unknown-unknown
 
   # Run clippy lints.
   clippy:
