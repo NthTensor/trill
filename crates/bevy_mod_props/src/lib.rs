@@ -53,7 +53,7 @@
 //! # use bevy_ecs::prelude::*;
 //!
 //! fn props_resource_system(props: Res<Props>) {
-//!     props.get("thingy");
+//!     props.get::<bool>("thingy");
 //! }
 //!
 //! fn props_world_system(world: &mut World) {
