@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-trill_core = { path = "../trill_core" }
+trill_core.workspace = true
 
 logos.workspace = true
 ustr.workspace = true
@@ -12,4 +12,3 @@ codespan-reporting.workspace = true
 
 [dev-dependencies]
 rand.workspace = true
-

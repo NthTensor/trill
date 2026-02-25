@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = "0.17.2" 
-bevy_trill = { path = "../crates/bevy_trill" }
-bevy_mod_props = { path = "../crates/bevy_mod_props" }
+bevy.workspace = true
+bevy_trill.workspace = true
+bevy_mod_props.workspace = true

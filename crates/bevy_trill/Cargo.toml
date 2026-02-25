@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 trill = { path = "../.." }
-bevy_mod_props = { path = "../bevy_mod_props" }
+bevy_mod_props = { workspace = true, default-features = true }
 
 bevy_app.workspace = true
 bevy_asset.workspace = true
@@ -13,6 +13,6 @@ bevy_ecs.workspace = true
 bevy_reflect.workspace = true
 bevy_tasks.workspace = true
 
-rand.workspace = true 
+rand.workspace = true
 thiserror.workspace = true
 ustr.workspace = true

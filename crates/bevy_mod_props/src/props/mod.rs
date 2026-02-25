@@ -673,7 +673,7 @@ impl Props {
     }
 
     /// Gets the given key’s corresponding entry in the map for in-place manipulation.
-    pub fn entry(&mut self, name: impl Into<Ustr>) -> Entry<Ustr, Value> {
+    pub fn entry(&mut self, name: impl Into<Ustr>) -> Entry<'_, Ustr, Value> {
         self.properties.entry(name.into())
     }
 
@@ -724,12 +724,12 @@ impl Props {
     }
 
     /// Creates a borrowing iterator over all property names and values.
-    pub fn iter(&self) -> Iter<Ustr, Value> {
+    pub fn iter(&self) -> Iter<'_, Ustr, Value> {
         self.properties.iter()
     }
 
     /// Creates a borrowing iterator over property names.
-    pub fn keys(&self) -> Keys<Ustr, Value> {
+    pub fn keys(&self) -> Keys<'_, Ustr, Value> {
         self.properties.keys()
     }
 
@@ -739,7 +739,7 @@ impl Props {
     }
 
     /// Creates a borrowing iterator over property values.
-    pub fn values(&self) -> Values<Ustr, Value> {
+    pub fn values(&self) -> Values<'_, Ustr, Value> {
         self.properties.values()
     }
 
@@ -749,7 +749,7 @@ impl Props {
     }
 
     /// Creates a mutable borrowing iterator over property values.
-    pub fn values_mut(&mut self) -> ValuesMut<Ustr, Value> {
+    pub fn values_mut(&mut self) -> ValuesMut<'_, Ustr, Value> {
         self.properties.values_mut()
     }
 }

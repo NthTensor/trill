@@ -210,7 +210,7 @@ impl ScriptReport {
                 } => {
                     let location = self.rule_locations.get(&in_rule).unwrap();
                     Diagnostic::error()
-                        .with_message(format!("variable used twice within the same rule",))
+                        .with_message("variable used twice within the same rule".to_string())
                         .with_label(
                             Label::primary(location.file_id, location.span.clone()).with_message(
                                 format!(

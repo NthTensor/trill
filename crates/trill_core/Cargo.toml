@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy_mod_props = { path = "../bevy_mod_props", default-feature = false }
+bevy_mod_props.workspace = true
 
 itertools.workspace = true
 rand.workspace = true
