@@ -296,7 +296,7 @@ impl ResponseDispatcher {
                     .choose_weighted(rng, |i| weights[candidates[*i]])
                     .ok()?;
                 let i = candidates.remove(*i);
-                if candidates.len() == 0 {
+                if candidates.is_empty() {
                     *candidates = (0..weights.len()).collect();
                     let _ = candidates.remove(i);
                 }
