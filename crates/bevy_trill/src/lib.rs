@@ -52,7 +52,7 @@ pub enum TrillFileError {
     NonUTF8(#[from] std::string::FromUtf8Error),
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct TrillFileLoader;
 
 impl AssetLoader for TrillFileLoader {
@@ -66,7 +66,10 @@ impl AssetLoader for TrillFileLoader {
         _settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let name = format!("{}", load_context.path().file_stem().unwrap().display());
+        let name = format!(
+            "{}",
+            load_context.path().path().file_stem().unwrap().display()
+        );
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let source = String::from_utf8(bytes)?;

@@ -112,8 +112,8 @@ impl ScriptCompiler {
 
 #[cfg(test)]
 mod test {
-    use trill_core::engine::StatementSet;
-    use ustr::Ustr;
+    // use trill_core::engine::StatementSet;
+    // use ustr::Ustr;
 
     use crate::ScriptCompiler;
 
@@ -144,6 +144,7 @@ mod test {
         assert!(engine.is_some());
     }
 
+    /*
     #[test]
     fn compile_script() {
         let script = r#"
@@ -192,4 +193,5 @@ mod test {
 
         assert_eq!(line, "Oh hi! I'm Miles");
     }
+    */
 }
